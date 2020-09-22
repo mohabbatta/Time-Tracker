@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:timetracker/app/sign_in/email_signin_model.dart';
 import 'package:timetracker/app/sign_in/validator.dart';
 import 'package:timetracker/common_widgets/form_raised_button.dart';
 import 'package:timetracker/common_widgets/platform_alert_dialog.dart';
+import 'package:timetracker/common_widgets/platform_exception_alert_dialog.dart';
 import 'package:timetracker/servies/auth.dart';
+import 'package:flutter/services.dart';
 
-enum EmailSignInformType { signIn, register }
-
-class EmailSignInForm extends StatefulWidget with EmailPasswordValidator {
-  EmailSignInForm({@required this.authBase});
-  final AuthBase authBase;
+class EmailSignInFormStateful extends StatefulWidget
+    with EmailPasswordValidator {
   @override
-  _EmailSignInFormState createState() => _EmailSignInFormState();
+  _EmailSignInFormStatefulState createState() =>
+      _EmailSignInFormStatefulState();
 }
 
-class _EmailSignInFormState extends State<EmailSignInForm> {
+class _EmailSignInFormStatefulState extends State<EmailSignInFormStateful> {
   EmailSignInformType _formType = EmailSignInformType.signIn;
   TextEditingController _emailController = TextEditingController();
   TextEditingController _passwordController = TextEditingController();
@@ -27,24 +29,33 @@ class _EmailSignInFormState extends State<EmailSignInForm> {
   bool _submitted = false;
   bool _isLoading = false;
 
-  void _submit() async {
+  @override
+  void dispose() {
+    super.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _emailFocusNode.dispose();
+    _passwordFocusNode.dispose();
+  }
+
+  Future<void> _submit() async {
+    final authBase = Provider.of<AuthBase>(context, listen: false);
     setState(() {
       _submitted = true;
       _isLoading = true;
     });
     try {
       if (_formType == EmailSignInformType.signIn) {
-        await widget.authBase.signInWithEmailAndPassword(_email, _password);
+        await authBase.signInWithEmailAndPassword(_email, _password);
       } else {
-        await widget.authBase.createUserWithEmailAndPassword(_email, _password);
+        await authBase.createUserWithEmailAndPassword(_email, _password);
       }
       Navigator.of(context).pop();
-    } catch (e) {
-      PlatformAlertDialog(
-              title: 'SignIn Failed',
-              content: e.toString(),
-              defaultActionText: 'Ok')
-          .show(context);
+    } on PlatformException catch (e) {
+      PlatformExceptionAlertDialog(
+        title: 'SignIn Failed',
+        exception: e,
+      ).show(context);
     } finally {
       setState(() {
         _isLoading = false;
