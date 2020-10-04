@@ -1,26 +1,72 @@
-import 'package:flutter/foundation.dart';
+import 'dart:async';
+
+import 'package:meta/meta.dart';
+import 'package:timetracker/app/home/models/entry.dart';
 import 'package:timetracker/app/home/models/job.dart';
 import 'package:timetracker/servies/api_path.dart';
-import 'package:timetracker/servies/firstore_service.dart';
+import 'package:timetracker/servies/firestore_service.dart';
 
 abstract class Database {
-  Future<void> createJob(Job job);
-  Stream<List<Job>> jobStreams();
+  Future<void> setJob(Job job);
+  Future<void> deleteJob(Job job);
+  Stream<List<Job>> jobsStream();
+
+  Future<void> setEntry(Entry entry);
+  Future<void> deleteEntry(Entry entry);
+  Stream<List<Entry>> entriesStream({Job job});
 }
 
+String documentIdFromCurrentDate() => DateTime.now().toIso8601String();
+
 class FireStoreDatabase implements Database {
-  FireStoreDatabase({@required this.userID}) : assert(userID != null);
-  final String userID;
+  FireStoreDatabase({@required this.uid}) : assert(uid != null);
+  final String uid;
 
   final _service = FireStoreService.instance;
 
-  Stream<List<Job>> jobStreams() => _service.collectionStream(
-        path: ApiPath.jobs(userID),
-        builder: (data) => Job.fromMap(data),
+  @override
+  Future<void> setJob(Job job) async => await _service.setData(
+        path: APIPath.job(uid, job.id),
+        data: job.toMap(),
       );
 
-  Future<void> createJob(Job job) async => _service.setData(
-        path: ApiPath.job(userID, 'job_abc'),
-        data: job.toMap(),
+  @override
+  Future<void> deleteJob(Job job) async {
+    // delete where entry.jobId == job.jobId
+    final allEntries = await entriesStream(job: job).first;
+    for (Entry entry in allEntries) {
+      if (entry.jobId == job.id) {
+        await deleteEntry(entry);
+      }
+    }
+    // delete job
+    await _service.deleteData(path: APIPath.job(uid, job.id));
+  }
+
+  @override
+  Stream<List<Job>> jobsStream() => _service.collectionStream(
+        path: APIPath.jobs(uid),
+        builder: (data, documentId) => Job.fromMap(data, documentId),
+      );
+
+  @override
+  Future<void> setEntry(Entry entry) async => await _service.setData(
+        path: APIPath.entry(uid, entry.id),
+        data: entry.toMap(),
+      );
+
+  @override
+  Future<void> deleteEntry(Entry entry) async =>
+      await _service.deleteData(path: APIPath.entry(uid, entry.id));
+
+  @override
+  Stream<List<Entry>> entriesStream({Job job}) =>
+      _service.collectionStream<Entry>(
+        path: APIPath.entries(uid),
+        queryBuilder: job != null
+            ? (query) => query.where('jobId', isEqualTo: job.id)
+            : null,
+        builder: (data, documentID) => Entry.fromMap(data, documentID),
+        sort: (lhs, rhs) => rhs.start.compareTo(lhs.start),
       );
 }
