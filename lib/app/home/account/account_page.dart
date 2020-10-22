@@ -1,5 +1,7 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:timetracker/common_widgets/avatar.dart';
 import 'package:timetracker/common_widgets/platform_alert_dialog.dart';
 import 'package:timetracker/servies/auth.dart';
 
@@ -27,6 +29,7 @@ class AccountPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final user = Provider.of<User>(context);
     return Scaffold(
       appBar: AppBar(
         title: Text('Jobs'),
@@ -38,7 +41,24 @@ class AccountPage extends StatelessWidget {
                 style: TextStyle(fontSize: 18, color: Colors.white),
               ))
         ],
+        bottom: PreferredSize(
+            child: _buildUserInfo(user), preferredSize: Size.fromHeight(130)),
       ),
+    );
+  }
+
+  Widget _buildUserInfo(User user) {
+    return Column(
+      children: <Widget>[
+        Avatar(photoUrl: user.photoUrl, radius: 50),
+        SizedBox(height: 8),
+        if (user.displayName != null)
+          Text(
+            user.displayName,
+            style: TextStyle(color: Colors.white),
+          ),
+        SizedBox(height: 8)
+      ],
     );
   }
 }
